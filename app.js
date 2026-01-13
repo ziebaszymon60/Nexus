@@ -9,11 +9,11 @@ const Nexus = {
     SESSION_KEY: 'nexus_session',
     PENDING_USER_KEY: 'nexus_pending_user',
 
-    // EmailJS Configuration - USER MUST FILL THESE IN
+    // EmailJS Configuration
     emailConfig: {
-        SERVICE_ID: 'YOUR_SERVICE_ID',
-        TEMPLATE_ID: 'YOUR_TEMPLATE_ID',
-        PUBLIC_KEY: 'YOUR_PUBLIC_KEY'
+        SERVICE_ID: 'service_2mvwjp4',
+        TEMPLATE_ID: '8hwolii',
+        PUBLIC_KEY: 'PASTE_YOUR_PUBLIC_KEY_HERE'
     },
 
     /**
