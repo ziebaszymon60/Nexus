@@ -81,14 +81,7 @@ const Nexus = {
         sessionStorage.setItem('nexus_verify_code', code);
         sessionStorage.setItem('nexus_pending_email', email);
 
-        // Check if EmailJS is configured
-        if (this.emailConfig.PUBLIC_KEY === 'YOUR_PUBLIC_KEY') {
-            console.warn('EmailJS not configured. Code is: ' + code);
-            return {
-                success: true,
-                message: 'SIMULATION: Verification code is ' + code + ' (Configure EmailJS to send real emails!)'
-            };
-        }
+
 
         // Real EmailJS call
         const templateParams = {
@@ -227,7 +220,7 @@ const Nexus = {
         return {
             success: true,
             message: 'Recovery code sent! Check your inbox 📨',
-            code: code // We return it here only for our simulation!
+            code: code
         };
     },
 
