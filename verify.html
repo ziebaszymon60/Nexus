@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Your Email - Nexus</title>
+    <meta name="description" content="Enter the verification code sent to your email.">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+    <!-- EmailJS SDK -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+</head>
+
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-logo">📨</div>
+            <h1>Check your email</h1>
+            <p>We've sent a 6-digit verification code to <strong id="userEmail">your email</strong>.</p>
+
+            <div id="message" class="message"></div>
+
+            <form id="verifyForm">
+                <div class="form-group">
+                    <label for="code">Verification Code</label>
+                    <div class="code-input-container">
+                        <input type="text" id="code" name="code" placeholder="000000" maxlength="6" required
+                            style="text-align: center; font-size: 2rem; letter-spacing: 0.5rem; font-weight: bold;">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                    ⚡ Verify & Join
+                </button>
+            </form>
+
+            <div class="auth-footer">
+                <p>Didn't receive a code? <a href="#" id="resendCode">Resend email</a></p>
+                <p style="margin-top: 20px;"><a href="signup.html">← Back to Sign Up</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        const email = sessionStorage.getItem('nexus_pending_email');
+        if (!email) {
+            window.location.href = 'signup.html';
+        } else {
+            document.getElementById('userEmail').textContent = email;
+        }
+
+        document.getElementById('verifyForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            const code = document.getElementById('code').value;
+            const result = Nexus.verifyCode(email, code);
+
+            showMessage(result.message, result.success ? 'success' : 'error');
+
+            if (result.success) {
+                setTimeout(() => {
+                    window.location.href = result.isLogin ? 'dashboard.html' : 'login.html';
+                }, 1500);
+            }
+        });
+
+        document.getElementById('resendCode').addEventListener('click', function (e) {
+            e.preventDefault();
+            const result = Nexus.sendVerificationEmail(email);
+            showMessage(result.message, result.success ? 'success' : 'error');
+        });
+    </script>
+</body>
+
+</html>

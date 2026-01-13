@@ -7,6 +7,14 @@ const Nexus = {
     // Storage keys
     USERS_KEY: 'nexus_users',
     SESSION_KEY: 'nexus_session',
+    PENDING_USER_KEY: 'nexus_pending_user',
+
+    // EmailJS Configuration - USER MUST FILL THESE IN
+    emailConfig: {
+        SERVICE_ID: 'YOUR_SERVICE_ID',
+        TEMPLATE_ID: 'YOUR_TEMPLATE_ID',
+        PUBLIC_KEY: 'YOUR_PUBLIC_KEY'
+    },
 
     /**
      * Get all registered users
@@ -52,13 +60,91 @@ const Nexus = {
             createdAt: new Date().toISOString()
         };
 
-        users.push(newUser);
-        this.saveUsers(users);
+        // Store user temporarily until verified
+        sessionStorage.setItem(this.PENDING_USER_KEY, JSON.stringify(newUser));
+
+        // Trigger Email sending
+        this.sendVerificationEmail(email);
 
         return {
             success: true,
-            message: `Welcome to Nexus, ${name}! ⚡ Your account is ready.`
+            message: `Verification code sent to ${email}! ⚡ Check your inbox.`
         };
+    },
+
+    /**
+     * Send Verification Email via EmailJS
+     */
+    sendVerificationEmail(email) {
+        // Generate a random 6-digit code
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        sessionStorage.setItem('nexus_verify_code', code);
+        sessionStorage.setItem('nexus_pending_email', email);
+
+        // Check if EmailJS is configured
+        if (this.emailConfig.PUBLIC_KEY === 'YOUR_PUBLIC_KEY') {
+            console.warn('EmailJS not configured. Code is: ' + code);
+            return {
+                success: true,
+                message: 'SIMULATION: Verification code is ' + code + ' (Configure EmailJS to send real emails!)'
+            };
+        }
+
+        // Real EmailJS call
+        const templateParams = {
+            to_email: email,
+            verify_code: code
+        };
+
+        emailjs.init(this.emailConfig.PUBLIC_KEY);
+        emailjs.send(this.emailConfig.SERVICE_ID, this.emailConfig.TEMPLATE_ID, templateParams)
+            .then(() => {
+                console.log('Email sent successfully!');
+            }, (error) => {
+                console.error('Failed to send email:', error);
+            });
+
+        return {
+            success: true,
+            message: `Code sent to ${email}! ⚡`
+        };
+    },
+
+    /**
+     * Verify the 6-digit code
+     */
+    verifyCode(email, inputCode) {
+        const storedCode = sessionStorage.getItem('nexus_verify_code');
+        const pendingSignup = JSON.parse(sessionStorage.getItem(this.PENDING_USER_KEY));
+        const pendingLogin = JSON.parse(sessionStorage.getItem('nexus_pending_login_user'));
+
+        if (inputCode === storedCode) {
+            // Case 1: Signup Verification
+            if (pendingSignup) {
+                const users = this.getUsers();
+                users.push(pendingSignup);
+                this.saveUsers(users);
+                sessionStorage.removeItem(this.PENDING_USER_KEY);
+                sessionStorage.removeItem('nexus_verify_code');
+                return { success: true, message: 'Email verified! You can now login. 🔓' };
+            }
+
+            // Case 2: Login Verification
+            if (pendingLogin) {
+                const session = {
+                    userId: pendingLogin.id,
+                    name: pendingLogin.name,
+                    email: pendingLogin.email,
+                    loginTime: new Date().toISOString()
+                };
+                localStorage.setItem(this.SESSION_KEY, JSON.stringify(session));
+                sessionStorage.removeItem('nexus_pending_login_user');
+                sessionStorage.removeItem('nexus_verify_code');
+                return { success: true, isLogin: true, message: `Welcome back, ${pendingLogin.name}! ⚡` };
+            }
+        }
+
+        return { success: false, message: 'Invalid code. Please try again! 🛑' };
     },
 
     /**
@@ -81,20 +167,14 @@ const Nexus = {
             return { success: false, message: 'Invalid credentials. Try again? 🔐' };
         }
 
-        // Create session
-        const session = {
-            userId: user.id,
-            name: user.name,
-            email: user.email,
-            loginTime: new Date().toISOString()
-        };
-
-        localStorage.setItem(this.SESSION_KEY, JSON.stringify(session));
+        // Trigger verification instead of immediate login
+        sessionStorage.setItem('nexus_pending_login_user', JSON.stringify(user));
+        this.sendVerificationEmail(user.email);
 
         return {
             success: true,
-            message: `Welcome back, ${user.name}! ⚡`,
-            user: session
+            requiresVerification: true,
+            message: `Verification code sent to ${user.email}! ⚡`
         };
     },
 

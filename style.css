@@ -412,6 +412,17 @@ a:hover {
     margin-top: 8px;
 }
 
+.code-input-container {
+    margin: 20px 0;
+    display: flex;
+    justify-content: center;
+}
+
+#code:focus {
+    letter-spacing: 0.8rem;
+    border-color: var(--primary);
+}
+
 .auth-footer {
     margin-top: 24px;
     color: var(--text-light);
