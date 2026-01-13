@@ -11,7 +11,7 @@ const Nexus = {
 
     // EmailJS Configuration
     emailConfig: {
-        SERVICE_ID: 'service_2mvwjp4',
+        SERVICE_ID: 'service_2hvwjx4',
         TEMPLATE_ID: '8hwolii',
         PUBLIC_KEY: 'fMvDyTODYQ1T4ted2'
     },
