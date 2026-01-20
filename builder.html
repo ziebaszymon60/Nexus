@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Build your rocket 3D - Nexus</title>
+    <link rel="stylesheet" href="style.css?v=2.1">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
+    <style>
+        /* Builder Specific Styles */
+        .builder-layout {
+            display: grid;
+            grid-template-columns: 280px 1fr 280px;
+            gap: 20px;
+            height: calc(100vh - 80px);
+            padding-top: 80px;
+            overflow: hidden;
+            background: #0F172A;
+            /* Deep space dark */
+        }
+
+        .panel {
+            background: rgba(30, 41, 59, 0.9);
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .panel-right {
+            border-right: none;
+            border-left: 1px solid var(--border-color);
+        }
+
+        h3,
+        h4 {
+            color: #F8FAFC;
+            margin-bottom: 0;
+        }
+
+        h4 {
+            font-size: 0.9rem;
+            color: #94A3B8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 10px;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 5px;
+        }
+
+        .part-item {
+            background: #1E293B;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: grab;
+            transition: all 0.2s;
+        }
+
+        .part-item:hover {
+            border-color: var(--primary);
+            background: #334155;
+        }
+
+        .part-icon-svg {
+            width: 40px;
+            height: 40px;
+            flex-shrink: 0;
+        }
+
+        .part-info {
+            flex: 1;
+        }
+
+        .part-title {
+            font-weight: 600;
+            color: #E2E8F0;
+            font-size: 0.9rem;
+            display: block;
+        }
+
+        .part-desc {
+            font-size: 0.75rem;
+            color: #94A3B8;
+        }
+
+        /* Construction Grid - Blueprint Look */
+        .build-area {
+            background-color: #0F172A;
+            background-image:
+                linear-gradient(rgba(56, 189, 248, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(56, 189, 248, 0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(10, 50px);
+            grid-template-rows: repeat(12, 50px);
+            background: rgba(15, 23, 42, 0.8);
+            border: 2px solid rgba(56, 189, 248, 0.3);
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.1);
+        }
+
+        .grid-cell {
+            width: 50px;
+            height: 50px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .grid-cell:hover {
+            background: rgba(56, 189, 248, 0.1);
+        }
+
+        .grid-cell.filled {
+            background: transparent;
+        }
+
+        .grid-cell svg {
+            width: 46px;
+            height: 46px;
+            filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.5));
+        }
+
+        /* Stats Bars */
+        .stat-row {
+            margin-bottom: 15px;
+        }
+
+        .stat-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: #CBD5E1;
+            margin-bottom: 5px;
+        }
+
+        .progress-bar-bg {
+            background: #334155;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        /* Simulation Overlay */
+        #simOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            z-index: 2000;
+            display: none;
+            flex-direction: column;
+        }
+
+        #simCanvas {
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        .sim-ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #00FF00;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            z-index: 2001;
+            text-shadow: 0 0 5px #00FF00;
+        }
+
+        /* SVG Definitions not displayed directly */
+        #svg-defs {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- SVG Assets Definition - HIGH DETAIL -->
+    <svg id="svg-defs">
+        <defs>
+            <!-- Gradients -->
+            <linearGradient id="metal-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:#94A3B8" />
+                <stop offset="50%" style="stop-color:#E2E8F0" />
+                <stop offset="100%" style="stop-color:#94A3B8" />
+            </linearGradient>
+            <linearGradient id="cockpit-glass" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" style="stop-color:#60A5FA" />
+                <stop offset="100%" style="stop-color:#1E3A8A" />
+            </linearGradient>
+            <linearGradient id="flame-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" style="stop-color:#FBBF24" />
+                <stop offset="50%" style="stop-color:#F97316" />
+                <stop offset="100%" style="stop-color:#DC2626" />
+            </linearGradient>
+            <linearGradient id="fuel-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" style="stop-color:#FB923C" />
+                <stop offset="100%" style="stop-color:#C2410C" />
+            </linearGradient>
+        </defs>
+
+        <!-- COCKPIT - Command Pod Mk1 -->
+        <symbol id="icon-cockpit-1" viewBox="0 0 100 100">
+            <!-- Main Body -->
+            <path d="M30 90 L30 40 Q50 5 70 40 L70 90 Z" fill="url(#metal-grad)" stroke="#475569" stroke-width="2" />
+            <!-- Window -->
+            <ellipse cx="50" cy="35" rx="12" ry="18" fill="url(#cockpit-glass)" />
+            <ellipse cx="50" cy="30" rx="6" ry="8" fill="rgba(255,255,255,0.3)" />
+            <!-- Detail Lines -->
+            <line x1="30" y1="60" x2="70" y2="60" stroke="#475569" stroke-width="1" />
+            <line x1="30" y1="75" x2="70" y2="75" stroke="#475569" stroke-width="1" />
+            <!-- RCS Dots -->
+            <circle cx="32" cy="50" r="3" fill="#374151" />
+            <circle cx="68" cy="50" r="3" fill="#374151" />
+        </symbol>
+
+        <!-- COCKPIT - Aerodynamic Nose -->
+        <symbol id="icon-cockpit-2" viewBox="0 0 100 100">
+            <path d="M35 95 L35 30 Q50 0 65 30 L65 95 Z" fill="url(#metal-grad)" stroke="#475569" stroke-width="2" />
+            <rect x="42" y="25" width="16" height="40" rx="3" fill="url(#cockpit-glass)" />
+            <rect x="45" y="28" width="4" height="8" fill="rgba(255,255,255,0.4)" />
+            <line x1="35" y1="70" x2="65" y2="70" stroke="#475569" stroke-width="1" />
+        </symbol>
+
+        <!-- ENGINE - Chemical -->
+        <symbol id="icon-engine-chem" viewBox="0 0 100 100">
+            <!-- Engine Housing -->
+            <rect x="25" y="5" width="50" height="45" rx="5" fill="url(#metal-grad)" stroke="#475569"
+                stroke-width="2" />
+            <!-- Nozzle -->
+            <path d="M30 50 L70 50 L75 85 Q50 95 25 85 Z" fill="#374151" stroke="#1F2937" stroke-width="2" />
+            <!-- Nozzle Inner -->
+            <ellipse cx="50" cy="75" rx="15" ry="8" fill="#0F172A" />
+            <!-- Thrust Flame (animated in CSS) -->
+            <path d="M40 85 Q50 120 60 85" fill="url(#flame-grad)" opacity="0.9">
+                <animate attributeName="d" values="M40 85 Q50 110 60 85;M40 85 Q50 125 60 85;M40 85 Q50 110 60 85"
+                    dur="0.3s" repeatCount="indefinite" />
+            </path>
+            <!-- Detail Pipes -->
+            <rect x="28" y="15" width="5" height="20" rx="2" fill="#64748B" />
+            <rect x="67" y="15" width="5" height="20" rx="2" fill="#64748B" />
+        </symbol>
+
+        <!-- ENGINE - Ion -->
+        <symbol id="icon-engine-ion" viewBox="0 0 100 100">
+            <!-- Outer Ring -->
+            <circle cx="50" cy="50" r="35" fill="#1E293B" stroke="#3B82F6" stroke-width="3" />
+            <!-- Inner Coils -->
+            <circle cx="50" cy="50" r="25" fill="none" stroke="#475569" stroke-width="2" />
+            <circle cx="50" cy="50" r="15" fill="none" stroke="#475569" stroke-width="2" />
+            <!-- Core Glow -->
+            <circle cx="50" cy="50" r="12" fill="#3B82F6">
+                <animate attributeName="r" values="10;14;10" dur="1s" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0.6;1;0.6" dur="1s" repeatCount="indefinite" />
+            </circle>
+            <!-- Energy Lines -->
+            <line x1="50" y1="15" x2="50" y2="25" stroke="#60A5FA" stroke-width="2" />
+            <line x1="50" y1="75" x2="50" y2="85" stroke="#60A5FA" stroke-width="2" />
+            <line x1="15" y1="50" x2="25" y2="50" stroke="#60A5FA" stroke-width="2" />
+            <line x1="75" y1="50" x2="85" y2="50" stroke="#60A5FA" stroke-width="2" />
+        </symbol>
+
+        <!-- HULL - Titanium Block -->
+        <symbol id="icon-hull-basic" viewBox="0 0 100 100">
+            <rect x="10" y="10" width="80" height="80" rx="4" fill="url(#metal-grad)" stroke="#475569"
+                stroke-width="2" />
+            <!-- Panel Lines -->
+            <line x1="10" y1="30" x2="90" y2="30" stroke="#64748B" stroke-width="1" />
+            <line x1="10" y1="50" x2="90" y2="50" stroke="#64748B" stroke-width="1" />
+            <line x1="10" y1="70" x2="90" y2="70" stroke="#64748B" stroke-width="1" />
+            <line x1="50" y1="10" x2="50" y2="90" stroke="#64748B" stroke-width="1" />
+            <!-- Rivets -->
+            <circle cx="20" cy="20" r="3" fill="#475569" />
+            <circle cx="80" cy="20" r="3" fill="#475569" />
+            <circle cx="20" cy="80" r="3" fill="#475569" />
+            <circle cx="80" cy="80" r="3" fill="#475569" />
+        </symbol>
+
+        <!-- HULL - Fuel Tank -->
+        <symbol id="icon-hull-fuel" viewBox="0 0 100 100">
+            <rect x="15" y="5" width="70" height="90" rx="12" fill="url(#fuel-grad)" stroke="#9A3412"
+                stroke-width="2" />
+            <!-- Tank Bands -->
+            <rect x="15" y="25" width="70" height="5" fill="#78350F" />
+            <rect x="15" y="70" width="70" height="5" fill="#78350F" />
+            <!-- Label -->
+            <text x="50" y="55" text-anchor="middle" fill="#FEF3C7" font-size="18" font-weight="bold"
+                font-family="monospace">LH2</text>
+            <!-- Gauge -->
+            <rect x="25" y="80" width="50" height="8" rx="2" fill="#7C2D12" />
+            <rect x="27" y="82" width="35" height="4" rx="1" fill="#22C55E" />
+        </symbol>
+
+        <!-- WING - Left -->
+        <symbol id="icon-wing-l" viewBox="0 0 100 100">
+            <path d="M85 10 L85 90 L5 90 Z" fill="url(#metal-grad)" stroke="#475569" stroke-width="2" />
+            <!-- Leading Edge -->
+            <line x1="85" y1="10" x2="5" y2="90" stroke="#DC2626" stroke-width="3" />
+            <!-- Detail Lines -->
+            <line x1="60" y1="50" x2="40" y2="90" stroke="#64748B" stroke-width="1" />
+            <line x1="75" y1="30" x2="55" y2="90" stroke="#64748B" stroke-width="1" />
+        </symbol>
+
+        <!-- WING - Right -->
+        <symbol id="icon-wing-r" viewBox="0 0 100 100">
+            <path d="M15 10 L15 90 L95 90 Z" fill="url(#metal-grad)" stroke="#475569" stroke-width="2" />
+            <!-- Leading Edge -->
+            <line x1="15" y1="10" x2="95" y2="90" stroke="#DC2626" stroke-width="3" />
+            <!-- Detail Lines -->
+            <line x1="40" y1="50" x2="60" y2="90" stroke="#64748B" stroke-width="1" />
+            <line x1="25" y1="30" x2="45" y2="90" stroke="#64748B" stroke-width="1" />
+        </symbol>
+
+        <!-- SHUTTLE - Nose with Checkered Pattern -->
+        <symbol id="icon-shuttle-nose" viewBox="0 0 100 100">
+            <!-- Main nose cone -->
+            <path d="M30 95 L30 35 Q50 0 70 35 L70 95 Z" fill="#F8FAFC" stroke="#94A3B8" stroke-width="2" />
+            <!-- Checkered pattern -->
+            <rect x="35" y="10" width="8" height="8" fill="#DC2626" />
+            <rect x="51" y="10" width="8" height="8" fill="#DC2626" />
+            <rect x="43" y="18" width="8" height="8" fill="#DC2626" />
+            <rect x="35" y="26" width="8" height="8" fill="#DC2626" />
+            <rect x="51" y="26" width="8" height="8" fill="#DC2626" />
+            <rect x="43" y="34" width="8" height="8" fill="#DC2626" />
+            <!-- Window -->
+            <ellipse cx="50" cy="55" rx="10" ry="12" fill="url(#cockpit-glass)" />
+            <ellipse cx="48" cy="52" rx="4" ry="5" fill="rgba(255,255,255,0.4)" />
+            <!-- Gray stripe -->
+            <rect x="30" y="75" width="40" height="8" fill="#64748B" />
+            <rect x="30" y="85" width="40" height="8" fill="#475569" />
+        </symbol>
+
+        <!-- SHUTTLE - Main Body (Orbiter) -->
+        <symbol id="icon-shuttle-body" viewBox="0 0 100 100">
+            <!-- Main body -->
+            <rect x="25" y="5" width="50" height="90" rx="5" fill="#F8FAFC" stroke="#94A3B8" stroke-width="2" />
+            <!-- Gray panels -->
+            <rect x="25" y="15" width="50" height="15" fill="#64748B" />
+            <rect x="25" y="50" width="50" height="10" fill="#64748B" />
+            <!-- Details -->
+            <line x1="25" y1="35" x2="75" y2="35" stroke="#CBD5E1" stroke-width="1" />
+            <line x1="25" y1="65" x2="75" y2="65" stroke="#CBD5E1" stroke-width="1" />
+            <line x1="25" y1="80" x2="75" y2="80" stroke="#CBD5E1" stroke-width="1" />
+            <!-- NASA-style logo area -->
+            <circle cx="50" cy="72" r="8" fill="#3B82F6" />
+            <text x="50" y="75" text-anchor="middle" fill="white" font-size="8" font-weight="bold">N</text>
+        </symbol>
+
+        <!-- SHUTTLE - Side Booster (SRB) Left -->
+        <symbol id="icon-srb-l" viewBox="0 0 100 100">
+            <!-- Booster body -->
+            <rect x="40" y="10" width="35" height="80" rx="8" fill="#F8FAFC" stroke="#94A3B8" stroke-width="2" />
+            <!-- Nose cone -->
+            <path d="M40 10 Q57 0 75 10" fill="#DC2626" stroke="#B91C1C" stroke-width="1" />
+            <!-- Stripes -->
+            <rect x="40" y="25" width="35" height="5" fill="#DC2626" />
+            <rect x="40" y="70" width="35" height="5" fill="#DC2626" />
+            <!-- Nozzle -->
+            <path d="M45 90 L70 90 L75 100 L40 100 Z" fill="#374151" stroke="#1F2937" stroke-width="1" />
+            <!-- Detail rivets -->
+            <circle cx="50" cy="45" r="3" fill="#94A3B8" />
+            <circle cx="65" cy="45" r="3" fill="#94A3B8" />
+            <circle cx="50" cy="60" r="3" fill="#94A3B8" />
+            <circle cx="65" cy="60" r="3" fill="#94A3B8" />
+        </symbol>
+
+        <!-- SHUTTLE - Side Booster (SRB) Right -->
+        <symbol id="icon-srb-r" viewBox="0 0 100 100">
+            <!-- Booster body -->
+            <rect x="25" y="10" width="35" height="80" rx="8" fill="#F8FAFC" stroke="#94A3B8" stroke-width="2" />
+            <!-- Nose cone -->
+            <path d="M25 10 Q42 0 60 10" fill="#DC2626" stroke="#B91C1C" stroke-width="1" />
+            <!-- Stripes -->
+            <rect x="25" y="25" width="35" height="5" fill="#DC2626" />
+            <rect x="25" y="70" width="35" height="5" fill="#DC2626" />
+            <!-- Nozzle -->
+            <path d="M30 90 L55 90 L60 100 L25 100 Z" fill="#374151" stroke="#1F2937" stroke-width="1" />
+            <!-- Detail rivets -->
+            <circle cx="35" cy="45" r="3" fill="#94A3B8" />
+            <circle cx="50" cy="45" r="3" fill="#94A3B8" />
+            <circle cx="35" cy="60" r="3" fill="#94A3B8" />
+            <circle cx="50" cy="60" r="3" fill="#94A3B8" />
+        </symbol>
+
+        <!-- SHUTTLE - External Tank (Orange) -->
+        <symbol id="icon-shuttle-tank" viewBox="0 0 100 100">
+            <!-- Main tank body -->
+            <rect x="20" y="5" width="60" height="90" rx="15" fill="#EA580C" stroke="#C2410C" stroke-width="2" />
+            <!-- Top dome -->
+            <ellipse cx="50" cy="12" rx="28" ry="8" fill="#F97316" />
+            <!-- Bottom -->
+            <ellipse cx="50" cy="88" rx="28" ry="8" fill="#C2410C" />
+            <!-- Tank stripes -->
+            <rect x="20" y="25" width="60" height="4" fill="#FB923C" />
+            <rect x="20" y="45" width="60" height="4" fill="#FB923C" />
+            <rect x="20" y="65" width="60" height="4" fill="#FB923C" />
+            <!-- Detail markings -->
+            <rect x="35" y="35" width="30" height="8" rx="2" fill="#FDBA74" />
+            <text x="50" y="42" text-anchor="middle" fill="#7C2D12" font-size="6" font-weight="bold">LOX/LH2</text>
+        </symbol>
+
+        <!-- SHUTTLE - Engine Cluster -->
+        <symbol id="icon-shuttle-engines" viewBox="0 0 100 100">
+            <!-- Engine mount plate -->
+            <rect x="15" y="5" width="70" height="20" rx="3" fill="#475569" stroke="#1F2937" stroke-width="2" />
+            <!-- Three main engines -->
+            <path d="M20 25 L35 25 L40 60 L15 60 Z" fill="#374151" stroke="#1F2937" stroke-width="1" />
+            <path d="M40 25 L60 25 L65 60 L35 60 Z" fill="#374151" stroke="#1F2937" stroke-width="1" />
+            <path d="M65 25 L80 25 L85 60 L60 60 Z" fill="#374151" stroke="#1F2937" stroke-width="1" />
+            <!-- Nozzle interiors -->
+            <ellipse cx="27" cy="55" rx="8" ry="4" fill="#0F172A" />
+            <ellipse cx="50" cy="55" rx="10" ry="5" fill="#0F172A" />
+            <ellipse cx="73" cy="55" rx="8" ry="4" fill="#0F172A" />
+            <!-- Flames -->
+            <ellipse cx="27" cy="75" rx="10" ry="18" fill="url(#flame-grad)" opacity="0.9">
+                <animate attributeName="ry" values="16;22;16" dur="0.2s" repeatCount="indefinite" />
+            </ellipse>
+            <ellipse cx="50" cy="78" rx="13" ry="22" fill="url(#flame-grad)" opacity="0.95">
+                <animate attributeName="ry" values="20;28;20" dur="0.15s" repeatCount="indefinite" />
+            </ellipse>
+            <ellipse cx="73" cy="75" rx="10" ry="18" fill="url(#flame-grad)" opacity="0.9">
+                <animate attributeName="ry" values="16;22;16" dur="0.2s" repeatCount="indefinite" />
+            </ellipse>
+        </symbol>
+    </svg>
+
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="dashboard.html" class="logo">
+                <span class="logo-icon">🚀</span>
+                <span>Nexus Engineer</span>
+            </a>
+            <ul class="nav-links">
+                <li><button class="btn btn-ghost" onclick="Builder.clearGrid()" style="color: #F8FAFC;">🗑️
+                        Clear</button></li>
+                <li><button class="btn btn-primary" id="launchBtn">LAUNCH SEQUENCE 🚀</button></li>
+                <li><a href="dashboard.html" style="color: #F8FAFC;">Exit</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="builder-layout">
+        <!-- LEFT: Parts Palette -->
+        <div class="panel">
+            <h3>Parts Inventory</h3>
+
+            <div class="part-category">
+                <h4>Command Modules</h4>
+                <div class="part-item" draggable="true" data-type="cockpit" data-id="Mk1-Pod" data-weight="50"
+                    data-power="0" data-svg="icon-cockpit-1">
+                    <svg class="part-icon-svg">
+                        <use href="#icon-cockpit-1"></use>
+                    </svg>
+                    <div class="part-info">
+                        <span class="part-title">Mk1 Podcast</span>
+                        <span class="part-desc">Basic visual control</span>
+                    </div>
+                </div>
+                <div class="part-item" draggable="true" data-type="cockpit" data-id="Interceptor" data-weight="40"
+                    data-power="0" data-svg="icon-cockpit-2">
+                    <svg class="part-icon-svg">
+                        <use href="#icon-cockpit-2"></use>
+                    </svg>
+                    <div class="part-info">
+                        <span class="part-title">Interceptor</span>
+                        <span class="part-desc">Aerodynamic profile</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="part-category">
+                <h4>Propulsion</h4>
+                <div class="part-item" draggable="true" data-type="engine" data-id="Chem-Thruster" data-weight="200"
+                    data-power="0" data-thrust="800" data-fuelcost="2" data-svg="icon-engine-chem">
+                    <svg class="part-icon-svg">
+                        <use href="#icon-engine-chem"></use>
+                    </svg>
+                    <div class="part-info">
+                        <span class="part-title">Chem-X Thruster</span>
+                        <span class="part-desc">High thrust, high fuel</span>
+                    </div>
+                </div>
+                <div class="part-item" draggable="true" data-type="engine" data-id="Ion-Drive" data-weight="100"
+                    data-power="-100" data-thrust="300" data-fuelcost="0.5" data-svg="icon-engine-ion">
+                    <svg class="part-icon-svg">
+                        <use href="#icon-engine-ion"></use>
+                    </svg>
+                    <div class="part-info">
+                        <span class="part-title">Ion Drive</span>
+                        <span class="part-desc">Low thrust, efficient</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="part-category">
+                <h4>Structure & Fuel</h4>
+                <div class="part-item" draggable="true" data-type="hull" data-id="Titanium-Block" data-weight="50"
+                    data-power="0" data-svg="icon-hull-basic">
+                    <svg class="part-icon-svg">
+                        <use href="#icon-hull-basic"></use>
+                    </svg>
+                    <div class="part-info">
+                        <span class="part-title">Titanium Strut</span>
+                        <span class="part-desc">Structural integrity</span>
+                    </div>
+                </div>
+                <div class="part-item" draggable="true" data-type="hull" data-id="Fuel-Tank" data-weight="150"
+                    data-power="0" data-fuelcap="500" data-svg="icon-hull-fuel">
+                    <svg class="part-icon-svg">
+                        <use href="#icon-hull-fuel"></use>
+                    </svg>
+                    <div class="part-info">
+                        <span class="part-title">Lq-H2 Tank</span>
+                        <span class="part-desc">+500 Fuel Capacity</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="part-category">
+                <h4>Aerodynamics</h4>
+                <div class="part-item" draggable="true" data-type="wing" data-id="Delta-Wing-L" data-weight="30"
+                    data-power="0" data-svg="icon-wing-l">
+                    <svg class="part-icon-svg">
+                        <use href="#icon-wing-l"></use>
+                    </svg>
+                    <div class="part-info">
+                        <span class="part-title">Delta Wing L</span>
+                    </div>
+                </div>
+                <div class="part-item" draggable="true" data-type="wing" data-id="Delta-Wing-R" data-weight="30"
+                    data-power="0" data-svg="icon-wing-r">
+                    <svg class="part-icon-svg">
+                        <use href="#icon-wing-r"></use>
+                    </svg>
+                    <div class="part-info">
+                        <span class="part-title">Delta Wing R</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="part-category" style="border-top: 2px solid #3B82F6; padding-top: 15px; margin-top: 15px;">
+                <h4 style="color: #60A5FA;">🚀 Space Shuttle Kit</h4>
+                <div class="part-item" draggable="true" data-type="cockpit" data-id="Shuttle-Nose" data-weight="60"
+                    data-power="0" data-svg="icon-shuttle-nose">
+                    <svg class="part-icon-svg">
+                        <use href="#icon-shuttle-nose"></use>
+                    </svg>
+                    <div class="part-info">
+                        <span class="part-title">Shuttle Nose</span>
+                        <span class="part-desc">Checkered pattern</span>
+                    </div>
+                </div>
+                <div class="part-item" draggable="true" data-type="hull" data-id="Shuttle-Body" data-weight="120"
+                    data-power="0" data-svg="icon-shuttle-body">
+                    <svg class="part-icon-svg">
+                        <use href="#icon-shuttle-body"></use>
+                    </svg>
+                    <div class="part-info">
+                        <span class="part-title">Orbiter Body</span>
+                        <span class="part-desc">Main shuttle hull</span>
+                    </div>
+                </div>
+                <div class="part-item" draggable="true" data-type="hull" data-id="SRB-Left" data-weight="100"
+                    data-power="0" data-thrust="600" data-fuelcap="300" data-svg="icon-srb-l">
+                    <svg class="part-icon-svg">
+                        <use href="#icon-srb-l"></use>
+                    </svg>
+                    <div class="part-info">
+                        <span class="part-title">SRB Left</span>
+                        <span class="part-desc">Side booster</span>
+                    </div>
+                </div>
+                <div class="part-item" draggable="true" data-type="hull" data-id="SRB-Right" data-weight="100"
+                    data-power="0" data-thrust="600" data-fuelcap="300" data-svg="icon-srb-r">
+                    <svg class="part-icon-svg">
+                        <use href="#icon-srb-r"></use>
+                    </svg>
+                    <div class="part-info">
+                        <span class="part-title">SRB Right</span>
+                        <span class="part-desc">Side booster</span>
+                    </div>
+                </div>
+                <div class="part-item" draggable="true" data-type="hull" data-id="External-Tank" data-weight="200"
+                    data-power="0" data-fuelcap="1500" data-svg="icon-shuttle-tank">
+                    <svg class="part-icon-svg">
+                        <use href="#icon-shuttle-tank"></use>
+                    </svg>
+                    <div class="part-info">
+                        <span class="part-title">External Tank</span>
+                        <span class="part-desc">+1500 Fuel</span>
+                    </div>
+                </div>
+                <div class="part-item" draggable="true" data-type="engine" data-id="Shuttle-Engines" data-weight="300"
+                    data-power="0" data-thrust="2500" data-fuelcost="5" data-svg="icon-shuttle-engines">
+                    <svg class="part-icon-svg">
+                        <use href="#icon-shuttle-engines"></use>
+                    </svg>
+                    <div class="part-info">
+                        <span class="part-title">RS-25 Cluster</span>
+                        <span class="part-desc">3x Main Engines</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CENTER: Grid -->
+        <div class="build-area">
+            <div class="grid-container" id="buildGrid">
+                <!-- JS Populated -->
+            </div>
+        </div>
+
+        <!-- RIGHT: Stats -->
+        <div class="panel panel-right">
+            <h3>Rocket Preview</h3>
+            <div id="rocketPreview"
+                style="width: 100%; height: 200px; background: #000; border: 1px solid #334155; border-radius: 8px; margin-bottom: 20px; overflow: hidden; position: relative;">
+                <!-- Three.js Canvas will spawn here -->
+                <div style="position: absolute; top: 10px; right: 10px; color: #64748B; font-size: 0.7rem;">LIVE 3D
+                </div>
+            </div>
+
+            <h3>Telemetry</h3>
+            <div style="margin-top: 10px;">
+
+                <div class="stat-row">
+                    <div class="stat-label">
+                        <span>Mass</span>
+                        <span id="statWeight">0 kg</span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" id="barWeight" style="width: 0%; background: #94A3B8;"></div>
+                    </div>
+                </div>
+
+                <div class="stat-row">
+                    <div class="stat-label">
+                        <span>Thrust Output</span>
+                        <span id="statThrust">0 kN</span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" id="barThrust" style="width: 0%; background: #F59E0B;"></div>
+                    </div>
+                </div>
+
+                <div class="stat-row">
+                    <div class="stat-label">
+                        <span>Fuel Capacity</span>
+                        <span id="statFuel">0 L</span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" id="barFuel" style="width: 0%; background: #3B82F6;"></div>
+                    </div>
+                </div>
+
+                <div class="stat-row">
+                    <div class="stat-label">
+                        <span>Apex Speed (Est)</span>
+                        <span id="statSpeed">0 Mach</span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" id="barSpeed" style="width: 0%; background: #10B981;"></div>
+                    </div>
+                </div>
+
+                <div class="message" id="buildMessage" style="margin-top: 20px; font-family: monospace;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SIMULATION OVERLAY -->
+    <div id="simOverlay">
+        <canvas id="simCanvas"></canvas>
+
+        <!-- HUD Panel - Top Left -->
+        <div class="sim-hud"
+            style="position: fixed; top: 20px; left: 20px; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(10px); border-radius: 16px; padding: 20px 25px; border: 1px solid rgba(255,255,255,0.1); min-width: 200px; z-index: 100;">
+            <div id="simPhase"
+                style="color: #FBBF24; font-size: 1.4rem; font-weight: bold; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 2px;">
+                PRE-LAUNCH</div>
+
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: #94A3B8; font-size: 0.9rem;">ALTITUDE</span>
+                    <span style="color: #FFF; font-weight: bold; font-size: 1.1rem;"><span id="simAlt">0</span> <span
+                            style="color: #64748B; font-size: 0.8rem;">ft</span></span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: #94A3B8; font-size: 0.9rem;">VELOCITY</span>
+                    <span style="color: #FFF; font-weight: bold; font-size: 1.1rem;"><span id="simSpd">0</span> <span
+                            style="color: #64748B; font-size: 0.8rem;">m/s</span></span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: #94A3B8; font-size: 0.9rem;">FUEL</span>
+                    <span style="color: #10B981; font-weight: bold; font-size: 1.1rem;"><span
+                            id="simFuel">100</span>%</span>
+                </div>
+            </div>
+
+            <!-- Fuel Bar -->
+            <div
+                style="margin-top: 15px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
+                <div id="fuelBar"
+                    style="height: 100%; width: 100%; background: linear-gradient(90deg, #10B981, #34D399); transition: width 0.3s;">
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls Hint - Bottom Center -->
+        <div
+            style="position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(8px); border-radius: 30px; padding: 12px 30px; border: 1px solid rgba(255,255,255,0.1); z-index: 100;">
+            <div style="display: flex; gap: 25px; align-items: center; color: #CBD5E1; font-size: 0.85rem;">
+                <span><kbd
+                        style="background: rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 4px; margin-right: 5px;">W</kbd>
+                    Thrust</span>
+                <span><kbd
+                        style="background: rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 4px; margin-right: 5px;">A</kbd><kbd
+                        style="background: rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 4px; margin-right: 5px;">D</kbd>
+                    Steer</span>
+                <span><kbd
+                        style="background: rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 4px; margin-right: 5px;">ESC</kbd>
+                    Exit</span>
+            </div>
+        </div>
+
+        <!-- Exit Button - Top Right -->
+        <button class="btn btn-ghost close-sim" onclick="Simulation.stop()"
+            style="position: fixed; top: 20px; right: 20px; color: white; border: 1px solid rgba(255,255,255,0.3); background: rgba(239, 68, 68, 0.2); backdrop-filter: blur(8px); padding: 10px 20px; border-radius: 8px; cursor: pointer; z-index: 100; transition: all 0.3s;">❌
+            ABORT</button>
+    </div>
+
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script src="app.js?v=5.0"></script>
+    <script src="builder.js?v=4.0"></script>
+    <script src="simulation.js?v=4.0"></script>
+</body>
+
+</html>
