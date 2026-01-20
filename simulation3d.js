@@ -50,17 +50,17 @@ const Simulation = {
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
         // Lighting
-        const ambientLight = new THREE.AmbientLight(0x404040, 0.6); // Soft white light
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.4); // Darker ambient for contrast
         this.scene.add(ambientLight);
 
-        this.sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        this.sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
         this.sunLight.position.set(100, 500, 200);
         this.sunLight.castShadow = true;
-        this.sunLight.shadow.mapSize.width = 2048;
-        this.sunLight.shadow.mapSize.height = 2048;
-        this.sunLight.shadow.camera.near = 0.5;
-        this.sunLight.shadow.camera.far = 5000;
         this.scene.add(this.sunLight);
+
+        // Hemisphere light for nice ground/sky gradient
+        const hemiLight = new THREE.HemisphereLight(0xb1e1ff, 0x000000, 0.3);
+        this.scene.add(hemiLight);
 
         // Environment
         this.createEarth();
@@ -78,33 +78,67 @@ const Simulation = {
         this.bindControls();
     },
 
-    createEarth: function () {
-        // Huge sphere for Earth
-        const geometry = new THREE.SphereGeometry(600000, 128, 128); // 600km radius (scaled down)
+    // --- PROCEDURAL TEXTURES ---
+    generateNoiseTexture: function (width, height, opacity = 1) {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
 
-        // Simple material for now (green/blue procedural)
-        // In a real app we'd load a texture, but let's make a cool procedural style
+        const imgData = ctx.createImageData(width, height);
+        const data = imgData.data;
+
+        for (let i = 0; i < data.length; i += 4) {
+            const val = Math.floor(Math.random() * 255);
+            data[i] = val;     // R
+            data[i + 1] = val;   // G
+            data[i + 2] = val;   // B
+            data[i + 3] = opacity * 255; // Alpha
+        }
+
+        ctx.putImageData(imgData, 0, 0);
+        return new THREE.CanvasTexture(canvas);
+    },
+
+    createEarth: function () {
+        // High-res sphere
+        const geometry = new THREE.SphereGeometry(600000, 256, 256);
+
+        // Procedural Planet Material
+        // We use a noisy normal map + specular map to fake continents/ocean reflection
+        const noiseTex = this.generateNoiseTexture(1024, 1024, 1);
+        noiseTex.wrapS = THREE.RepeatWrapping;
+        noiseTex.wrapT = THREE.RepeatWrapping;
+        noiseTex.repeat.set(10, 10);
+
         const material = new THREE.MeshPhongMaterial({
-            color: 0x228B22, // Forest Green
-            emissive: 0x001133,
-            specular: 0x111111,
-            shininess: 10,
-            flatShading: false
+            color: 0x1E4099, // Deep Ocean Blue
+            emissive: 0x000510,
+            specular: 0x222222,
+            shininess: 25,
+            bumpMap: noiseTex,
+            bumpScale: 500,
+            map: noiseTex // Use noise as color variation too to fake clouds/land
         });
 
+        // Hack to make land green/brown by mixing colors (simple tinting via vertex colors is hard here without shaders)
+        // Let's stick to a "Blue Marble" style with the noise adding cloud layers
+        material.color.setHex(0x2255AA);
+
         this.earth = new THREE.Mesh(geometry, material);
-        this.earth.position.y = -600010; // Top of earth is at y=-10 (ground level at 0)
+        this.earth.position.y = -600010;
         this.earth.receiveShadow = true;
-        this.earth.rotation.z = 0.1; // Axis tilt
+        this.earth.rotation.z = 0.4; // Tilt
         this.scene.add(this.earth);
 
-        // Atmosphere glow (hacky big sphere)
-        const atmosGeo = new THREE.SphereGeometry(620000, 64, 64);
+        // Atmosphere Halo
+        const atmosGeo = new THREE.SphereGeometry(610000, 64, 64);
         const atmosMat = new THREE.MeshBasicMaterial({
-            color: 0x4CA5FF,
+            color: 0x6699FF,
             transparent: true,
-            opacity: 0.1,
-            side: THREE.BackSide
+            opacity: 0.15,
+            side: THREE.BackSide,
+            blending: THREE.AdditiveBlending
         });
         const atmosphere = new THREE.Mesh(atmosGeo, atmosMat);
         atmosphere.position.y = -600010;
@@ -152,6 +186,12 @@ const Simulation = {
 
         document.getElementById('simOverlay').style.display = 'flex';
         this.active = true;
+
+        // AUDIO START
+        if (typeof AudioSys !== 'undefined') {
+            AudioSys.init();
+            AudioSys.startEngine();
+        }
 
         // Build the rocket from parts
         this.buildRocket3D(parts);
@@ -281,6 +321,13 @@ const Simulation = {
             this.rocket.fuel -= 10 * dt; // Consumption
         } else {
             this.rocket.thrust = Math.max(0, this.rocket.thrust - this.rocket.maxThrust * dt);
+        }
+
+        // AUDIO UPDATE
+        if (typeof AudioSys !== 'undefined') {
+            // Thrust percentage 0-1
+            const thrustPct = this.rocket.thrust / (this.rocket.maxThrust || 1);
+            AudioSys.update(thrustPct, this.rocket.velocity, this.rocket.altitude);
         }
 
         // Acceleration (F=ma => a=F/m)

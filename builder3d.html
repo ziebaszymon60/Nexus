@@ -760,8 +760,16 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
     <script src="app.js?v=6.0"></script>
+    <script src="audio.js?v=6.0"></script>
     <script src="builder3d.js?v=6.0"></script>
     <script src="simulation3d.js?v=6.0"></script>
+
+    <script>
+        // Init audio on first interaction
+        document.body.addEventListener('click', () => {
+            if (AudioSys && !AudioSys.enabled) AudioSys.init();
+        }, { once: true });
+    </script>
 </body>
 
 </html>
