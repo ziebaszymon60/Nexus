@@ -37,8 +37,12 @@
 
                 <div class="form-group">
                     <label for="password">Create Password</label>
-                    <input type="password" id="password" name="password" placeholder="Make it strong! 💪" required
-                        minlength="6" autocomplete="new-password">
+                    <div class="password-input-group">
+                        <input type="password" id="password" name="password" placeholder="Make it strong! 💪" required
+                            minlength="6" autocomplete="new-password">
+                        <button type="button" id="togglePassword" class="toggle-password"
+                            title="Show/Hide Password">👁️</button>
+                    </div>
                 </div>
 
                 <button type="submit" class="btn btn-primary">
@@ -71,6 +75,9 @@
                 }, 1500);
             }
         });
+
+        // Init Password Toggle
+        Nexus.initPasswordToggle('password', 'togglePassword');
     </script>
 </body>
 

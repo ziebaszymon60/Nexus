@@ -251,6 +251,22 @@ const Nexus = {
         }
 
         return { success: false, message: 'Invalid recovery code. Try again! 🛑' };
+    },
+
+    /**
+     * Password Visibility Toggle Helper
+     */
+    initPasswordToggle(inputId, toggleId) {
+        const passwordInput = document.getElementById(inputId);
+        const toggleBtn = document.getElementById(toggleId);
+
+        if (passwordInput && toggleBtn) {
+            toggleBtn.addEventListener('click', () => {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                toggleBtn.textContent = type === 'password' ? '👁️' : '🙈';
+            });
+        }
     }
 };
 
