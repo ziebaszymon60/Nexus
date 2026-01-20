@@ -267,8 +267,73 @@ const Nexus = {
                 toggleBtn.textContent = type === 'password' ? '👁️' : '🙈';
             });
         }
+    },
+
+    /**
+     * Theme Toggle Logic
+     */
+    initTheme() {
+        // Check Saved Theme
+        const savedTheme = localStorage.getItem('nexus_theme');
+        if (savedTheme) {
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            // Auto Dark Mode if system preference
+            document.documentElement.setAttribute('data-theme', 'dark');
+        }
+
+        // Setup Toggle Button if exists
+        const themeBtn = document.getElementById('themeToggle');
+        if (themeBtn) {
+            this.updateThemeIcon(themeBtn);
+            themeBtn.addEventListener('click', () => {
+                const current = document.documentElement.getAttribute('data-theme');
+                const newTheme = current === 'dark' ? 'light' : 'dark';
+
+                document.documentElement.setAttribute('data-theme', newTheme);
+                localStorage.setItem('nexus_theme', newTheme);
+                this.updateThemeIcon(themeBtn);
+            });
+        }
+    },
+
+    updateThemeIcon(btn) {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        btn.textContent = isDark ? '☀️' : '🌙';
+    },
+
+    /**
+     * Dashboard Clock
+     */
+    initClock(elementId) {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+
+        const update = () => {
+            const now = new Date();
+            el.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        };
+
+        update(); // Init immediately
+        setInterval(update, 1000);
+    },
+
+    /**
+     * Google Login Mock
+     */
+    loginWithGoogle() {
+        return {
+            success: true,
+            isLogin: true,
+            message: 'Successfully logged in with Google! 🌐 (Simulated)'
+        };
     }
 };
+
+// Initialize Theme on Load
+document.addEventListener('DOMContentLoaded', () => {
+    Nexus.initTheme();
+});
 
 /**
  * Show message helper (for forms)
